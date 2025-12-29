@@ -1,0 +1,5 @@
+{
+  "name": "Agno.Tech - Smarter Research",
+  "description": "A sophisticated AI-powered research platform that synthesizes academic papers, GitHub repositories, and HuggingFace models using the Gemini API.",
+  "requestFramePermissions": []
+}

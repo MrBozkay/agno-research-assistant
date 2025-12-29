@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env
+.env.*
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+.next/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Project Specific
+frontend_backup/
+.gemini/
+list_openrouter_models.py
+debug_agents.py
