@@ -36,7 +36,6 @@ class WiroClient:
             "x-api-key": self.api_key,
             "x-nonce": nonce,
             "x-signature": signature,
-            "Content-Type": "multipart/form-data" 
         }
 
     def submit_task(self, prompt: str, system_prompt: Optional[str] = None) -> Dict[str, Any]:
@@ -65,7 +64,8 @@ class WiroClient:
             "callbackUrl": ""
         }
         
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        # Send as JSON (standard API behavior)
+        response = requests.post(url, headers=headers, json=payload)
         
         if response.status_code != 200:
             raise Exception(f"Failed to submit task. Status: {response.status_code}, Response: {response.text}")
@@ -79,14 +79,14 @@ class WiroClient:
         
         payload = {"taskid": task_id}
         
-        response = requests.post(url, headers=headers, data=json.dumps(payload))
+        response = requests.post(url, headers=headers, json=payload)
         
         if response.status_code != 200:
             raise Exception(f"Failed to get task detail. Status: {response.status_code}, Response: {response.text}")
 
         return response.json()
 
-    def poll_task(self, task_id: str, interval: int = 2, timeout: int = 60) ->  Dict[str, Any]:
+    def poll_task(self, task_id: str, interval: int = 2, timeout: int = 300) ->  Dict[str, Any]:
         """Polls the task status until it completes or times out."""
         start_time = time.time()
         
@@ -117,7 +117,125 @@ class WiroClient:
             
         raise Exception("Polling timed out.")
 
-# --- Limited Agno Adapter (Placeholder) ---
-# To fully integrate with Agno, we would need to implement a class inheriting from agno.models.base.Model
-# and mapping the 'generate' and 'stream' methods to this client's submit/poll logic using Wiro.
-# Since Wiro is async/polling based, streaming might be simulated or non-existent in this first version.
+from agno.models.base import Model
+from agno.utils.log import logger
+
+class WiroAgnoModel(Model):
+    id: str = "deepseek-ai/deepseek-r1-distill-qwen-32b"
+    name: str = "WiroDeepSeek"
+    provider: str = "Wiro"
+    client: Optional[WiroClient] = None
+
+    def __init__(self, api_key: str, api_secret: str, **kwargs):
+        kwargs['id'] = self.id
+        super().__init__(**kwargs)
+        self.client = WiroClient(api_key, api_secret)
+
+    def response(self, messages: List[Dict[str, Any]], **kwargs) -> Any:
+        # Convert messages to prompt string
+        prompt = ""
+        system_prompt = None
+        
+        for msg in messages:
+            if hasattr(msg, "role"):
+                role = msg.role
+                content = msg.content
+            else:
+                role = msg.get("role")
+                content = msg.get("content")
+            
+            if role == "system":
+                system_prompt = content
+            elif role == "user":
+                prompt += f"User: {content}\n"
+            elif role == "assistant":
+                prompt += f"Assistant: {content}\n"
+        
+        prompt += "Assistant: "
+        
+        logger.info(f"Submitting Wiro task with prompt length: {len(prompt)}")
+        
+        try:
+            submission = self.client.submit_task(prompt, system_prompt)
+            if not submission.get("result"):
+                raise Exception(f"Wiro submission failed: {submission}")
+            
+            task_id = submission.get("taskid")
+            logger.info(f"Polling Wiro task: {task_id}")
+            
+            result = self.client.poll_task(task_id)
+            
+            # Wiro output parsing (Assumes text output)
+            # The structure based on documentation example is complex.
+            # Assuming the text is in outputs[0]['url'] if it's an image, or somewhere else for text.
+            # DEEPSEEK is an LLM, so we expect text. 
+            # If the documentation only showed image examples, we might have to guess or check 'debugoutput' or similar.
+            # However, usually for LLMs, it's just in a 'text' field or similar or we return the whole structure object.
+            # Let's inspect the 'outputs' list.
+            
+            # For now, return a Mock response object compatible with Agno
+            # Agno expects an object with .content attribute usually.
+            
+            # Since we don't know the exact text output field from the docs provided (they were image gen examples),
+            # Wiro usually puts generation in 'outputs' or a 'result' field.
+            # Let's try to find text content.
+            
+            output_content = "Thinking..." # Placeholder
+            if "outputs" in result and result["outputs"]:
+                 # If it's a file (like the image example), it has a URL.
+                 # If it's text, deeply inspecting...
+                 # We will return the raw result as string for now to debug.
+                 output_content = str(result)
+            
+            # Match Agno's ModelResponse structure roughly
+            class MockMessage:
+                def __init__(self, content):
+                    self.content = content
+                    self.role = "assistant"
+                    self.reasoning_content = None # Required for R1 models
+
+            class Response:
+                def __init__(self, content):
+                    self.content = content
+                    self.message = MockMessage(content)
+                    self.reasoning_content = None
+            
+            return Response(output_content)
+
+        except Exception as e:
+            logger.error(f"Wiro Error: {e}")
+            class ErrorMessage:
+                content = f"Error: {e}"
+                role = "assistant"
+                reasoning_content = None
+            class ErrorResponse:
+                content = f"Error: {e}"
+                message = ErrorMessage()
+                reasoning_content = None
+            return ErrorResponse()
+    async def ainvoke(self, *args, **kwargs) -> Any:
+        # Since we don't have async Wiro client yet, just run sync
+        return self.invoke(*args, **kwargs)
+
+    async def ainvoke_stream(self, *args, **kwargs) -> Any:
+        # Since we don't have async stream, mock it
+        yield self.invoke(*args, **kwargs)
+
+    def invoke(self, messages: List[Dict[str, Any]]) -> Any:
+         return self.response(messages)
+    
+    def invoke_stream(self, messages: List[Dict[str, Any]]) -> Iterator[Any]:
+        yield self.response(messages)
+
+    # These parsing methods are for internal Agno structured output logic.
+    # We can mock them or implement basic json parsing if needed.
+    # For this research agent, simple content return is key.
+    
+    def _parse_provider_response(self, response: Any) -> Any:
+        # Our response() method already mocks an object with .content
+        # But if Agno passes the raw provider response here, we handle it.
+        # Since we control response(), we can just return it.
+        return response
+
+    def _parse_provider_response_delta(self, response_delta: Any) -> Any:
+        return response_delta

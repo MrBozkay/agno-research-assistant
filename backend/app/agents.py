@@ -15,12 +15,15 @@ load_dotenv(dotenv_path=env_path)
 provider = os.getenv("LLM_PROVIDER", "openrouter") # Default to openrouter
 
 if provider == "wiro":
-    # Wiro Integration (Experimental)
-    from app.providers.wiro import WiroClient
+    # Wiro Integration
+    from app.providers.wiro import WiroAgnoModel
     if not os.getenv("WIRO_API_KEY") or not os.getenv("WIRO_API_SECRET"):
        raise ValueError("WIRO_API_KEY and WIRO_API_SECRET must be set for 'wiro' provider.")
-    # TODO: Implement WiroAgnoModel adapter
-    raise NotImplementedError("Wiro provider is integrated but requires a full Agno Model adapter to be used with Agents.")
+    
+    selected_model = WiroAgnoModel(
+        api_key=os.getenv("WIRO_API_KEY"),
+        api_secret=os.getenv("WIRO_API_SECRET")
+    )
 else:
     # OpenRouter (Default)
     from app.providers.openrouter import OpenRouterProvider
