@@ -11,21 +11,28 @@ from pathlib import Path
 env_path = Path(__file__).parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
-if not os.getenv("OPENROUTER_API_KEY"):
-    raise ValueError("OPENROUTER_API_KEY environment variable is not set!")
+# Provider Configuration
+provider = os.getenv("LLM_PROVIDER", "openrouter") # Default to openrouter
 
-# OpenRouter Configuration
-openrouter_model = OpenAIChat(
-    id="google/gemini-2.0-flash-001",
-    api_key=os.getenv("OPENROUTER_API_KEY"),
-    base_url="https://openrouter.ai/api/v1",
-)
+if provider == "wiro":
+    # Wiro Integration (Experimental)
+    from app.providers.wiro import WiroClient
+    if not os.getenv("WIRO_API_KEY") or not os.getenv("WIRO_API_SECRET"):
+       raise ValueError("WIRO_API_KEY and WIRO_API_SECRET must be set for 'wiro' provider.")
+    # TODO: Implement WiroAgnoModel adapter
+    raise NotImplementedError("Wiro provider is integrated but requires a full Agno Model adapter to be used with Agents.")
+else:
+    # OpenRouter (Default)
+    from app.providers.openrouter import OpenRouterProvider
+    # Allows overriding model ID via env var if needed
+    model_id = os.getenv("OPENROUTER_MODEL_ID", "google/gemini-2.0-flash-001")
+    selected_model = OpenRouterProvider.get_model(model_id)
 
 # Agent Definitions
 research_agent = Agent(
     name="Research Agent",
     role="AI/ML Researcher",
-    model=openrouter_model,
+    model=selected_model,
     tools=[ArxivTools()],
     instructions=[
         "Search for recent papers on arXiv related to the topic.",
@@ -36,7 +43,7 @@ research_agent = Agent(
 code_model_agent = Agent(
     name="GitHub/HF Agent",
     role="Open Source Explorer",
-    model=openrouter_model,
+    model=selected_model,
     tools=[DuckDuckGoTools()],
     instructions=[
         "Search for relevant GitHub repositories and HuggingFace models/spaces.",
@@ -48,7 +55,7 @@ code_model_agent = Agent(
 tech_team = Team(
     name="Tech Analyst Team",
     members=[research_agent, code_model_agent],
-    model=openrouter_model,
+    model=selected_model,
     instructions=[
         "Combine the information from the Research Agent and the GitHub/HF Agent.",
         "Provide a comprehensive technical report in Markdown.",
