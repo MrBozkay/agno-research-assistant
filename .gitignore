@@ -25,3 +25,4 @@ frontend_backup/
 .gemini/
 list_openrouter_models.py
 debug_agents.py
+wiro_client.py

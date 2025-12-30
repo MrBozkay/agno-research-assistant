@@ -74,7 +74,25 @@ cd agno-research-assistant
     ```env
     OPENROUTER_API_KEY=sk-or-v1-your-key-here
     ```
-4.  Run the Backend Server:
+### 3. Configuration
+
+The application supports multiple LLM providers. Configure this in your `.env` file:
+
+**Default (OpenRouter):**
+```env
+LLM_PROVIDER=openrouter
+OPENROUTER_API_KEY=sk-or-v1-your-key
+OPENROUTER_MODEL_ID=google/gemini-2.0-flash-001  # Optional: Override model
+```
+
+**Experimental (Wiro AI):**
+```env
+LLM_PROVIDER=wiro
+WIRO_API_KEY=your-wiro-key
+WIRO_API_SECRET=your-wiro-secret
+```
+
+### 4. Run the Backend Server:
     ```bash
     cd backend
     python main.py
