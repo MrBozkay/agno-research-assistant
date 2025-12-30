@@ -30,7 +30,7 @@ The project consists of two main components:
 
 ```mermaid
 graph LR
-    A[Frontend (Next.js)] -->|POST /api/research| B[Backend (FastAPI)]
+    A[Frontend (Next.js)] -->|"POST /api/research"| B[Backend (FastAPI)]
     B --> C{Agno Agent Team}
     C -->|Search| D[DuckDuckGo]
     C -->|Papers| E[Arxiv]
