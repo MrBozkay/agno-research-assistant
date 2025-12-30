@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+agno
+openai
+duckduckgo-search
+arxiv
+python-dotenv
